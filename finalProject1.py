@@ -18,7 +18,7 @@ def get_cars():
 def get_cars_by_make_and_model(make, model):
     model_years = []
     if make == "Chevrolet":
-        if model == "Camero":
+        if model == "Cavalier":
             model_years = [1978, 1997, 2001, 2010]
     elif make == "GMC":
         if model == "k-1500":
@@ -43,14 +43,15 @@ def get_cars_by_make_and_model(make, model):
 @app.route('/car/<make>/<model>/<year>', methods=['GET'])
 @cross_origin()
 def get_cars_by_make_and_model_and_year(make, model, year):
-    car_data = {
+    car_data = [{
         'make': make,
+        'images': ["images\driver-side-image.png", "images\passenger-side-image.png", "images\\front-view-image.png", "images\\rear-view-image.png"],
         'model': model,
         'year': year,
         'color': 'blue',
         'mileage': 99000,
-        'images': ()
-    }
+        'notes': ''
+    }]
     return jsonify(car_data)
 
 
@@ -59,7 +60,7 @@ def get_cars_by_make_and_model_and_year(make, model, year):
 def get_car_models(make):
     car_models = []
     if make == "Chevrolet":
-        car_models = ["Cabriolet", "Camero", "Silverado"]
+        car_models = ["Cabriolet", "Cavalier", "Camero", "Silverado"]
     elif make == "GMC":
         car_models = ["k-1500"]
     elif make == "Saturn":
