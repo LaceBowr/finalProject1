@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS, cross_origin
 
 app = Flask(__name__)
@@ -74,6 +74,49 @@ def get_car_models(make):
     else:
         car_models = ["no cars (in database) of this make"]
     return jsonify(car_models)
+
+@app.route('/add_car', methods=['POST'])
+@cross_origin()
+def add_car():
+    try:
+        # Get JSON data from the request
+        data = request.get_json()
+
+        # Extract data members
+        make = data['make']
+        model = data['model']
+        year = data['year']
+        notes = data['notes']
+        color = data['color']
+        car_type = data['type']
+        images = data['images']
+
+        # You can perform further processing or validation here
+
+        # Return a response
+        response = {
+            'status': 'success',
+            'message': 'Car added successfully',
+            'data': {
+                'make': make,
+                'model': model,
+                'year': year,
+                'notes': notes,
+                'color': color,
+                'type': car_type,
+                'images': images
+            }
+        }
+        return jsonify(response)
+
+    except Exception as e:
+        # Handle exceptions if any
+        response = {
+            'status': 'error',
+            'message': str(e)
+        }
+        return jsonify(response)
+
 
 '''
 @app.route('/cars', methods=['GET'])
