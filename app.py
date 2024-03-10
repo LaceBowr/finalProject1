@@ -3,20 +3,54 @@ from flask_cors import CORS, cross_origin
 from base64 import b64encode
 import argparse
 import mysql.connector
+import boto3
+import json
 import os
+from botocore.exceptions import ClientError
 
 app = Flask(__name__)
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
+dbusername = ''
+dbpassword = ''
+
 def get_db_connection():
     db_connection = mysql.connector.connect(
-        host = "10.70.1.211",
-        user = "serviceaccount",
-        password = "test1234",
+        #Local testing
+        #host = "10.70.1.211", 
+        #user = "serviceaccount",
+        #password = "test1234",
+        host = "mysql-database-2.cvg0q2icw2th.us-east-2.rds.amazonaws.com",
+        user = dbusername,
+        password = dbpassword,
         db = "radical_wreckage_schema"
     )
     return db_connection
+
+def init_db_creds_from_secretsmanager(secret_name, region_name):
+
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        # For a list of exceptions thrown, see
+        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+        raise e
+
+    secrets_dict = json.loads(get_secret_value_response['SecretString'])
+    global dbusername
+    dbusername = secrets_dict['username']
+    global dbpassword 
+    dbpassword = secrets_dict['password']
 
 def perform_sql_select_return_as_list_of_tuples(select_query): 
     db = get_db_connection()
@@ -83,16 +117,6 @@ def perform_sql_image_query(select_query):
     cursor.close()
     db.close()
     return result_list
-
-
-#def add_new_data(add_new):
-#    db = get_db_connection()
-#    cursor = db.cursor()
-#    cursor.execute(add_new)
-#    row = cursor.fetchall()
-#    add_new_data_list.append(make, year, model, images, color, cost)
-#    cursor.close()
-#    return add_new_data_list
 
 @app.route('/add_car_makes', methods=['POST'])
 @cross_origin()
@@ -165,6 +189,9 @@ def get_cars_by_make_and_model(make, model):
     print(result_list)
     return jsonify(result_list) 
 
+'''
+temporarily commenting out add and delete until we 
+get authentication worked out using something, jwt maybe
 @app.route('/car/delete/<carid>', methods=['GET'])
 @cross_origin()
 def delete_car_by_id(carid):
@@ -177,7 +204,7 @@ def delete_car_by_id(carid):
     }]
     print(result)
     return jsonify(result)
-
+'''
 @app.route('/car/<car_id>', methods=['GET'])
 @cross_origin()
 def get_cars_by_id(car_id):
@@ -225,7 +252,8 @@ def get_car_models(make):
     querystr = f'select distinct model from cars join makes on cars.makes_id=makes.id where makes.make_name="{make}" order by model asc;'
     result_list = perform_sql_select_return_as_list(querystr)
     return jsonify(result_list)  
-
+'''
+commented out temporarily 
 @app.route('/add_car', methods=['POST'])
 @cross_origin()
 def add_car():
@@ -268,6 +296,11 @@ def add_car():
             'message': str(e)
         }
         return jsonify(response)
+'''
+@app.route('/healthcheck', methods=['GET'])
+@cross_origin()
+def healthcheck():
+    return '', 200 
 
 @app.route('/getimage/<imagename>')
 @cross_origin()
@@ -313,6 +346,8 @@ def parse_args():
     return parser.parse_args()
 
 if __name__ == '__main__':
+    # Init db creds as globals up front
+    init_db_creds_from_secretsmanager("dbadminSecret", "us-east-2")
     args = parse_args()
     # Listen on all network interfaces (0.0.0.0) and the specified port
     app.run(debug=True, host='0.0.0.0', port=args.port)
