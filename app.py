@@ -17,10 +17,6 @@ dbpassword = ''
 
 def get_db_connection():
     db_connection = mysql.connector.connect(
-        #Local testing
-        #host = "10.70.1.211", 
-        #user = "serviceaccount",
-        #password = "test1234",
         host = "mysql-database-2.cvg0q2icw2th.us-east-2.rds.amazonaws.com",
         user = dbusername,
         password = dbpassword,

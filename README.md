@@ -24,7 +24,12 @@ To update and push to ECR for the deployed service:
 
  docker tag wreckage-webservice:latest 211125642163.dkr.ecr.us-east-2.amazonaws.com/wreckage-webservice:latest
 
- docker push 211125642163.dkr.ecr.us-east-2.amazonaws.com/wreckage:latest 
+ docker push 211125642163.dkr.ecr.us-east-2.amazonaws.com/wreckage-webservice:latest 
 
+To run locally you must run:
 
+docker run -it -p 5000:5000 -e AWS_ACCESS_KEY_ID="<access_key_id_for_user>" -e AWS_SECRET_ACCESS_KEY="<access_key_for_user>"
 
+Get these from your local .aws credentials file or from the iam console in aws
+
+Reminder to myself Local db userpwcombo on my dev host is serviceaccount/test1234
