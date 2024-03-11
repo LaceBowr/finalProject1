@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS, cross_origin
 from base64 import b64encode
 import argparse
@@ -12,6 +12,8 @@ app = Flask(__name__)
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
+siteadminusername = ''
+siteadminpassword = ''
 dbusername = ''
 dbpassword = ''
 
@@ -43,10 +45,7 @@ def init_db_creds_from_secretsmanager(secret_name, region_name):
         raise e
 
     secrets_dict = json.loads(get_secret_value_response['SecretString'])
-    global dbusername
-    dbusername = secrets_dict['username']
-    global dbpassword 
-    dbpassword = secrets_dict['password']
+    return secrets_dict['username'], secrets_dict['password']
 
 def perform_sql_select_return_as_list_of_tuples(select_query): 
     db = get_db_connection()
@@ -114,9 +113,21 @@ def perform_sql_image_query(select_query):
     db.close()
     return result_list
 
+# Function to validate basic authentication credentials
+def authenticate(username, password):
+    #print(f'comparing {siteadminusername} to {username} and {siteadminpassword} to {password}', )
+    if siteadminusername == username and siteadminpassword == password:
+        return True
+    return False
+
 @app.route('/add_car_makes', methods=['POST'])
 @cross_origin()
 def add_new_make():
+    
+    auth = request.authorization
+    if not auth or not authenticate(auth.username, auth.password):
+        return Response('Unauthorized', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
     if not request.is_json:
         print("Not valid json")
         return jsonify ({"result": False, "desc": "Invalid data"})
@@ -136,6 +147,11 @@ def add_new_make():
 @app.route('/add_car_data', methods=['POST'])
 @cross_origin()
 def add_new_car():
+
+    auth = request.authorization
+    if not auth or not authenticate(auth.username, auth.password):
+        return Response('Unauthorized', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
     if not request.is_json:
         print("Not valid json")
         return jsonify ({"result": False, "desc": "Invalid data"})
@@ -185,13 +201,17 @@ def get_cars_by_make_and_model(make, model):
     print(result_list)
     return jsonify(result_list) 
 
-'''
-temporarily commenting out add and delete until we 
-get authentication worked out using something, jwt maybe
 @app.route('/car/delete/<carid>', methods=['GET'])
 @cross_origin()
 def delete_car_by_id(carid):
+
+    auth = request.authorization
+    if not auth or not authenticate(auth.username, auth.password):
+        return Response('Unauthorized', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
     print("Entering delete car by id")
+    print("Exiting early from delete because we don't want to really delete anything yet")
+    return jsonify([])
     query_str = f'delete from cars where id={carid};'
     print(query_str)
     rval = perform_sql_delete_query(query_str)
@@ -200,7 +220,7 @@ def delete_car_by_id(carid):
     }]
     print(result)
     return jsonify(result)
-'''
+
 @app.route('/car/<car_id>', methods=['GET'])
 @cross_origin()
 def get_cars_by_id(car_id):
@@ -248,51 +268,7 @@ def get_car_models(make):
     querystr = f'select distinct model from cars join makes on cars.makes_id=makes.id where makes.make_name="{make}" order by model asc;'
     result_list = perform_sql_select_return_as_list(querystr)
     return jsonify(result_list)  
-'''
-commented out temporarily 
-@app.route('/add_car', methods=['POST'])
-@cross_origin()
-def add_car():
-    try:
-        # Get JSON data from the request
-        data = request.get_json()
 
-        # Extract data members
-        make = data['make']
-        model = data['model']
-        year = data['year']
-        notes = data['notes']
-        color = data['color']
-        car_type = data['type']
-        images = data['images']
-
-        # You can perform further processing or validation here
-
-        # Return a response
-        response = {
-            'status': 'success',
-            'message': 'Car added successfully',
-            'data': {
-                'make': make,
-                'model': model,
-                'year': year,
-                'notes': notes,
-                'color': color,
-                'type': car_type,
-                'images': images
-            }
-        }
-    
-        return jsonify(response)
-
-    except Exception as e:
-        # Handle exceptions if any
-        response = {
-            'status': 'error',
-            'message': str(e)
-        }
-        return jsonify(response)
-'''
 @app.route('/healthcheck', methods=['GET'])
 @cross_origin()
 def healthcheck():
@@ -341,9 +317,18 @@ def parse_args():
     parser.add_argument('--port', type=int, default=5000, help='Port number to run the Flask app on')
     return parser.parse_args()
 
-if __name__ == '__main__':
+def main():
     # Init db creds as globals up front
-    init_db_creds_from_secretsmanager("dbadminSecret", "us-east-2")
+    global dbusername
+    global dbpassword
+    dbusername, dbpassword = init_db_creds_from_secretsmanager("dbadminSecret", "us-east-2")
+    global siteadminpassword
+    global siteadminusername
+    siteadminusername, siteadminpassword = init_db_creds_from_secretsmanager("SiteAddDeleteCreds", "us-east-2")
     args = parse_args()
     # Listen on all network interfaces (0.0.0.0) and the specified port
     app.run(debug=True, host='0.0.0.0', port=args.port)
+
+if __name__ == '__main__':
+    main()
+
